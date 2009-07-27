@@ -41,6 +41,12 @@ module ProfanityFilter
         return text if text.blank?
         text.split(/(\W)/).collect{|word| replace_method == 'dictionary' ? clean_word_dictionary(word) : clean_word_basic(word)}.join
       end
+      
+      def profane?(text)
+          return false if text.blank?
+          text.split(/(\W)/).collect{|word| return true if dictionary.include?(word.downcase.squeeze)}          
+          return false
+      end
 
       def clean_word_dictionary(word)
         dictionary.include?(word.downcase.squeeze) && word.size > 2 ? dictionary[word.downcase.squeeze] : word
@@ -52,3 +58,27 @@ module ProfanityFilter
     end
   end
 end
+
+module Validations
+  def self.included(base)
+    base.extend Validations::ClassMethods
+  end
+
+  module ClassMethods
+    def validates_no_profanity(fields, args = {})
+        msg = args[:message] || "contains profanity"
+
+        validates_each fields do |model, attr, val|
+            if !val.blank? and ProfanityFilter::Base.profane?(val) then
+                model.errors.add(attr, msg)
+            end
+        end
+    end        
+  end
+end
+
+class ActiveRecord::Base
+  # add in the extra validations created above
+  include Validations
+end
+
